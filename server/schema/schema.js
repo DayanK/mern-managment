@@ -1,6 +1,6 @@
 // const { projects, clients } = require("../sampleData.js");
 
-const { GraphQLObjectType, GraphQLID, GraphQLString,GraphQLList, GraphQLSchema } = require("graphql");
+const { GraphQLObjectType, GraphQLID, GraphQLString,GraphQLList, GraphQLSchema, GraphQLNonNull, GraphQLEnumType} = require("graphql");
 
 const Project = require('../models/Project')
 const Client = require('../models/Client')
@@ -71,6 +71,176 @@ const RootQuery = new GraphQLObjectType({
 });
 
 
-module.exports = new GraphQLSchema({
-    query : RootQuery
+// Mutations
+const mutation = new GraphQLObjectType({
+  name: "Mutation",
+  fields: {
+    // Add a client
+    addClient: {
+      type: ClientType,
+      args: {
+        name: { type: GraphQLNonNull(GraphQLString) },
+        email: { type: GraphQLNonNull(GraphQLString) },
+        phone: { type: GraphQLNonNull(GraphQLString) },
+      },
+      resolve(parent, args) {
+        const client = new Client({
+          name: args.name,
+          email: args.email,
+          phone: args.phone,
+        });
+        return client.save();
+      },
+    },
+
+    // Delete a client
+    deleteClient: {
+      type: ClientType,
+      args: { id: { type: GraphQLNonNull(GraphQLID) } },
+      resolve(parent, args) {
+        return Client.findByIdAndDelete(args.id).then((result) => {
+          if (!result) throw new Error("Client not found");
+          return {
+            message: "The client was successfully deleted",
+            ...result._doc,
+          };
+        });
+      },
+    },
+
+    // Update a client
+    updateClient: {
+      type: ClientType,
+      args: {
+        id: { type: GraphQLNonNull(GraphQLID) },
+        name: { type: GraphQLString },
+        email: { type: GraphQLString },
+        phone: { type: GraphQLString },
+      },
+      async resolve(parent, args) {
+        try {
+          // Check if client already exist
+          const client = await Client.findById(args.id);
+          if (!client) {
+            throw new Error("Client was not found");
+          }
+          // Mise à jour du client avec les valeurs fournies
+          client.name = args.name ?? client.name;
+          client.email = args.email ?? client.email;
+          client.phone = args.phone ?? client.phone;
+          const updatedClient = await client.save();
+          return {
+            message: "The client was successfully updated",
+            ...updatedClient._doc,
+          };
+        } catch (error) {
+          throw new Error(`Error updating client : ${error.message}`);
+        }
+      },
+    },
+
+    // Add a project
+    addProject: {
+      type: ProjectType,
+      args: {
+        name: { type: GraphQLNonNull(GraphQLString) },
+        description: { type: GraphQLNonNull(GraphQLString) },
+        status: {
+          type: new GraphQLEnumType({
+            name: "ProjectStatus",
+            values: {
+              new: { value: "Not Started" },
+              in_progress: { value: "In Progress" },
+              completed: { value: "Completed" },
+            },
+          }),
+          defaultValue: "Not Started",
+        },
+        clientId: { type: GraphQLNonNull(GraphQLID) },
+      },
+      resolve(parent, args) {
+        const project = new Project({
+          name: args.name,
+          description: args.description,
+          status: args.status,
+          clientId: args.clientId,
+        });
+
+        return project.save().then((result) => {
+          return {
+            message: "The project was successfully added",
+            ...result._doc,
+          };
+        });
+      },
+    },
+
+    // Delete a project
+    deleteProject: {
+      type: ProjectType,
+      args: { id: { type: GraphQLNonNull(GraphQLID) } },
+      resolve(parent, args) {
+        return Project.findByIdAndDelete(args.id).then((result) => {
+            if (!result) throw new Error("Project not found");
+            return {
+              message: "The Project was successfully deleted",
+              ...result._doc,
+            };
+          });
+      },
+    },
+
+    // Update a project
+    updateProject: {
+      type: ProjectType,
+      args: {
+        id: { type: GraphQLNonNull(GraphQLID) },
+        name: { type: GraphQLString },
+        description: { type: GraphQLString },
+        status: {
+          type: new GraphQLEnumType({
+            name: "ProjectStatusUpdate",
+            values: {
+              new: { value: "Not Started" },
+              in_progress: { value: "In Progress" },
+              completed: { value: "Completed" },
+            },
+          }),
+        },
+        clientId: { type: GraphQLID },
+      },
+      async resolve(parent, args) {
+        try {
+          // Check if project already exist
+          const project = await Project.findByIdAndUpdate(args.id);
+          if (!project) {
+            throw new Error("Project was not found");
+          }
+          // Update the project with the provided values
+          project.name = args.name ?? project.name;
+          project.description = args.description ?? project.description;
+          project.status = args.status ?? project.status;
+          project.clientId = args.clientId ?? project.clientId;
+
+          const updatedProject = await project.save();
+          
+          return {
+            message: "The project was successfully updated",
+            ...updatedProject._doc,
+          };
+        } catch (error) {
+          throw new Error(`Error updating project : ${error.message}`);
+        }
+      },
+    },
+  },
 });
+
+
+
+module.exports = new GraphQLSchema({
+    query : RootQuery,
+    mutation: mutation
+});
+
+
