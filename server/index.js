@@ -1,4 +1,5 @@
 const { graphqlHTTP} = require('express-graphql');
+const cors = require('cors');
 const colors = require('colors');
 const schema =require('./schema/schema')
 const connectDB = require('./config/db.js')
@@ -14,6 +15,8 @@ const app = express();
 
 // Connect to dabase
 connectDB();
+
+app.use(cors());
 
 app.use("/graphql", graphqlHTTP({
     schema,

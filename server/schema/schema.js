@@ -18,8 +18,7 @@ const ProjectType = new GraphQLObjectType({
         type: ClientType,
         resolve(parent, args){
             // return clients.find(client => client.id === parent.id)
-            return Client.find(parent.clientId)
-        }
+          return Client.findById(parent.clientId);        }
       }
     }),
   });
@@ -166,12 +165,7 @@ const mutation = new GraphQLObjectType({
           clientId: args.clientId,
         });
 
-        return project.save().then((result) => {
-          return {
-            message: "The project was successfully added",
-            ...result._doc,
-          };
-        });
+        return project.save();
       },
     },
 
@@ -181,12 +175,12 @@ const mutation = new GraphQLObjectType({
       args: { id: { type: GraphQLNonNull(GraphQLID) } },
       resolve(parent, args) {
         return Project.findByIdAndDelete(args.id).then((result) => {
-            if (!result) throw new Error("Project not found");
-            return {
-              message: "The Project was successfully deleted",
-              ...result._doc,
-            };
-          });
+          if (!result) throw new Error("Project not found");
+          return {
+            message: "The Project was successfully deleted",
+            ...result._doc,
+          };
+        });
       },
     },
 
@@ -202,35 +196,25 @@ const mutation = new GraphQLObjectType({
             name: "ProjectStatusUpdate",
             values: {
               new: { value: "Not Started" },
-              in_progress: { value: "In Progress" },
+              progress: { value: "In Progress" },
               completed: { value: "Completed" },
             },
           }),
         },
         clientId: { type: GraphQLID },
       },
-      async resolve(parent, args) {
-        try {
-          // Check if project already exist
-          const project = await Project.findByIdAndUpdate(args.id);
-          if (!project) {
-            throw new Error("Project was not found");
-          }
-          // Update the project with the provided values
-          project.name = args.name ?? project.name;
-          project.description = args.description ?? project.description;
-          project.status = args.status ?? project.status;
-          project.clientId = args.clientId ?? project.clientId;
-
-          const updatedProject = await project.save();
-          
-          return {
-            message: "The project was successfully updated",
-            ...updatedProject._doc,
-          };
-        } catch (error) {
-          throw new Error(`Error updating project : ${error.message}`);
-        }
+      resolve(parent, args) {
+        return Project.findByIdAndUpdate(
+          args.id,
+          {
+            $set: {
+              name: args.name,
+              description: args.description,
+              status: args.status,
+            },
+          },
+          { new: true }
+        );
       },
     },
   },
